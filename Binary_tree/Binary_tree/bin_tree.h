@@ -14,7 +14,6 @@ class bin_tree
 {
 private:
     struct Node<T> * root;
-    bool is_elem_in_tree(T elem) const;
     bool is_empty() const;
     void delete_tree(Node<T> * node);
 public:
@@ -22,10 +21,12 @@ public:
     ~bin_tree();
     bool insert(T elem);
     void remote(T elem);
-    const Node<T> * find(T elem) const;
+    bool is_elem_in_tree(T elem) const;
+    Node<T> * find(T elem) const;
+    Node<T> * find_parent(T elem) const;
     const T& find_max() const;
     const T& find_min() const;
-
+    void clear();
 };
 
 template<typename T>
@@ -133,7 +134,7 @@ bool bin_tree<T>::insert(T elem)
 }
 
 template<typename T>
-const Node<T> * bin_tree<T>::find(T elem) const
+Node<T> * bin_tree<T>::find(T elem) const
 {
     Node<T> * some = root;
 
@@ -150,15 +151,19 @@ const Node<T> * bin_tree<T>::find(T elem) const
 }
 
 template<typename T>
-void bin_tree<T>::remote(T elem)
+Node<T> * bin_tree<T>::find_parent(T elem) const
 {
     Node<T> * some = root;
-    Node<T> * parent = some;
+    Node<T> * parent = root;
 
     while(some != nullptr)
     {
         if (some->value == elem)
-            break;
+        {
+            if (some == parent)
+                return nullptr;
+            return parent;
+        }
         else if (elem < some->value)
         {
             parent = some;
@@ -170,45 +175,74 @@ void bin_tree<T>::remote(T elem)
             some = some->right;
         }
     }
+    return nullptr;
+}
 
-    if (some != nullptr)
+template<typename T>
+void bin_tree<T>::remote(T elem)
+{
+    if (is_elem_in_tree(elem))
     {
-        Node<T> * left_branch = some->left;
-        Node<T> * right_branch = some->right;
+        Node<T> * node_for_delete = find(elem);
+        Node<T> * parent_node_for_delete = find_parent(elem);
+        Node<T> * left_branch = node_for_delete->left;
+        Node<T> * right_branch = node_for_delete->right;
 
-        if (left_branch == nullptr || right_branch == nullptr)
+        if (left_branch != nullptr && right_branch != nullptr)
         {
-            if (parent->value < some->value)
+            Node<T> * the_smalest_elem_in_right_branch = right_branch;
+            while(the_smalest_elem_in_right_branch->left != nullptr)
+                the_smalest_elem_in_right_branch = the_smalest_elem_in_right_branch->left;
+
+            Node<T> * parent_of_the_smalest_elem_in_right_branch = find_parent(the_smalest_elem_in_right_branch->value);
+
+            T some_value = the_smalest_elem_in_right_branch->value;
+            Node<T> * right_branch_of_the_smalest = the_smalest_elem_in_right_branch->right;
+
+            if (parent_of_the_smalest_elem_in_right_branch != node_for_delete)
+                parent_of_the_smalest_elem_in_right_branch->left = right_branch_of_the_smalest;
+
+            remote(the_smalest_elem_in_right_branch->value);
+
+            node_for_delete->value = some_value;
+        }
+        else if (left_branch == nullptr)
+        {
+            if (parent_node_for_delete == nullptr) // root
             {
-                if (left_branch == nullptr)
-                    parent->right = right_branch;
-                else if (right_branch == nullptr)
-                    parent->right = left_branch;
+                delete node_for_delete;
+                root = right_branch;
+            }
+            else if (parent_node_for_delete->value < node_for_delete->value)
+            {
+                parent_node_for_delete->right = right_branch;
+                delete node_for_delete;
             }
             else
             {
-                if (left_branch == nullptr)
-                    parent->left = right_branch;
-                else if (right_branch == nullptr)
-                    parent->left = left_branch;
+                parent_node_for_delete->left = right_branch;
+                delete node_for_delete;
             }
-            delete some;
         }
-        else
+        else if (right_branch == nullptr)
         {
-            Node<T> * right_branch_smalest_elem = right_branch;
-            Node<T> * parent_of_rbse = right_branch;
-
-            while(right_branch_smalest_elem->left != nullptr)
+            if (parent_node_for_delete == nullptr) // root
             {
-                parent_of_rbse = right_branch_smalest_elem;
-                right_branch_smalest_elem = right_branch_smalest_elem->left;
+                delete node_for_delete;
+                root = left_branch;
             }
-            some->value = right_branch_smalest_elem->value;
-            delete right_branch_smalest_elem;
-            parent_of_rbse->left = nullptr;
+            else if (parent_node_for_delete->value < node_for_delete->value)
+            {
+                parent_node_for_delete->right = left_branch;
+                delete node_for_delete;
+            }
+            else
+            {
+                parent_node_for_delete->left = left_branch;
+                delete node_for_delete;
+            }
         }
-    } //если элемента нет, нечего удалять
+    }
 }
 
 template<typename T>
@@ -232,5 +266,13 @@ const T& bin_tree<T>::find_min() const
 
     return some->value;
 }
+
+template<typename T>
+void bin_tree<T>::clear()
+{
+    delete_tree(root);
+    root = nullptr;
+}
+
 
 #endif
